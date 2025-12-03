@@ -14,7 +14,6 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tools.ToolDescriptor;
 import hudson.tools.ToolInstallation;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
@@ -29,12 +28,11 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
         this.vars = vars;
     }
 
-    @SuppressWarnings("rawtypes")
-    public @Override Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+    public @Override Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener) {
         return new Environment() {
             public @Override void buildEnvVars(Map<String,String> env) {
                 for (String var : vars.split(",")) {
-                    if (var.length() == 0) {
+                    if (var.isEmpty()) {
                         continue;
                     }
                     ToolInstallation tool = toolsByVar().get(var);
@@ -78,7 +76,7 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
             for (ToolInstallation inst : desc.getInstallations()) {
                 String instName = inst.getName();
                 if (instName != null) {
-                    // some instalations return null instead of empty string
+                    // some installations return null instead of empty string
                     r.put(instName.replaceAll("[^a-zA-Z0-9_]+", "_").toUpperCase(Locale.ENGLISH) + "_HOME", inst);
                 }
             }
@@ -92,7 +90,6 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
 
     @Extension public static class Descriptor extends BuildWrapperDescriptor {
 
-        @SuppressWarnings("rawtypes")
         public boolean isApplicable(AbstractProject item) {
             return true;
         }

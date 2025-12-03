@@ -3,50 +3,38 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>2.15</version>
+        <version>5.28</version>
     </parent>
+
     <artifactId>toolenv</artifactId>
-    <version>1.3-SNAPSHOT</version>
+    <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
-    <name>Tool Environment plugin</name>
-    <description>Lets you use "tools" in unusual ways, such as from shell scripts.</description>
+    <name>Tool Environment</name>
     <url>https://github.com/jenkinsci/toolenv-plugin</url>
+
     <developers>
         <developer>
             <id>skundrik</id>
             <name>Slavomir Kundrik</name>
         </developer>
     </developers>
+
+    <properties>
+        <revision>1.3</revision>
+        <changelist>-SNAPSHOT</changelist>
+        <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
+        <jenkins.baseline>2.516</jenkins.baseline>
+        <jenkins.version>${jenkins.baseline}.3</jenkins.version>
+        <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
+    </properties>
+
     <scm>
-        <connection>scm:git:git://github.com/jenkinsci/toolenv-plugin.git</connection>
-        <developerConnection>scm:git:git@github.com:jenkinsci/toolenv-plugin.git</developerConnection>
-        <url>https://github.com/jenkinsci/toolenv-plugin</url>
-      <tag>HEAD</tag>
-  </scm>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>animal-sniffer-maven-plugin</artifactId>
-                <version>1.13</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <signature>
-                                <groupId>org.codehaus.mojo.signature</groupId>
-                                <artifactId>java17</artifactId>
-                                <version>1.0</version>
-                            </signature>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+        <connection>scm:git:https://github.com/${gitHubRepo}</connection>
+        <developerConnection>scm:git:https://github.com/${gitHubRepo}</developerConnection>
+        <tag>${scmTag}</tag>
+        <url>https://github.com/${gitHubRepo}</url>
+    </scm>
+
     <repositories>
         <repository>
             <id>repo.jenkins-ci.org</id>
