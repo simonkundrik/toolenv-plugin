@@ -3,10 +3,10 @@ package hudson.plugins.toolenv;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
-import hudson.model.Computer;
 import hudson.model.EnvironmentSpecific;
 import hudson.model.Node;
 import hudson.slaves.NodeSpecific;
@@ -14,10 +14,15 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tools.ToolDescriptor;
 import hudson.tools.ToolInstallation;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public class ToolEnvBuildWrapper extends BuildWrapper {
@@ -29,41 +34,45 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
     }
 
     public @Override Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener) {
+        // buildEnvVars is called again for every build step, and from threads that are not executor threads.
+        // Finding the tools and installing them runs the tool installers, so do that once per build, here.
+        Node node = build.getBuiltOn();
+        final Map<String,ToolInstallation> tools = new LinkedHashMap<String,ToolInstallation>();
+        for (String var : selectedVars()) {
+            ToolInstallation tool = toolsByVar().get(var);
+            if (tool == null) {
+                listener.error("No tool found matching " + var);
+                continue;
+            }
+            if (tool instanceof NodeSpecific) {
+                try {
+                    if (node == null) {
+                        listener.error("Could not install " + var + ". Node is null.");
+                        continue;
+                    }
+                    tool = (ToolInstallation) ((NodeSpecific<?>) tool).forNode(node, listener);
+                } catch (Exception x) {
+                    x.printStackTrace(listener.error("Could not install " + var));
+                    continue;
+                }
+            }
+            tools.put(var, tool);
+        }
         return new Environment() {
+            private final Set<String> logged = ConcurrentHashMap.newKeySet();
+
             public @Override void buildEnvVars(Map<String,String> env) {
-                for (String var : vars.split(",")) {
-                    if (var.isEmpty()) {
-                        continue;
-                    }
-                    ToolInstallation tool = toolsByVar().get(var);
-                    if (tool == null) {
-                        listener.error("No tool found matching " + var);
-                        continue;
-                    }
-                    if (tool instanceof NodeSpecific) {
-                        try {
-                            Computer computer = Computer.currentComputer();
-                            if (computer == null) {
-                                listener.error("Could not install " + var + ". Computer is null.");
-                                continue;
-                            }
-                            Node node = computer.getNode();
-                            if (node == null) {
-                                listener.error("Could not install " + var + ". Node is null.");
-                                continue;
-                            }
-                            tool = (ToolInstallation) ((NodeSpecific<?>) tool).forNode(node, listener);
-                        } catch (Exception x) {
-                            x.printStackTrace(listener.error("Could not install " + var));
-                            continue;
-                        }
-                    }
+                for (Map.Entry<String,ToolInstallation> entry : tools.entrySet()) {
+                    String var = entry.getKey();
+                    ToolInstallation tool = entry.getValue();
                     if (tool instanceof EnvironmentSpecific) {
                         EnvVars e = new EnvVars(env);
                         tool = (ToolInstallation) ((EnvironmentSpecific<?>) tool).forEnvironment(e);
                     }
                     String home = tool.getHome();
-                    listener.getLogger().println("Setting " + var + "=" + home);
+                    if (logged.add(var)) {
+                        listener.getLogger().println("Setting " + var + "=" + home);
+                    }
                     env.put(var, home);
                 }
             }
@@ -86,6 +95,16 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
 
     public static Collection<String> availableVariableNames() {
         return toolsByVar().keySet();
+    }
+
+    private List<String> selectedVars() {
+        List<String> r = new ArrayList<String>();
+        for (String var : Util.fixNull(vars).split(",")) {
+            if (!var.isEmpty()) {
+                r.add(var);
+            }
+        }
+        return r;
     }
 
     @Extension public static class Descriptor extends BuildWrapperDescriptor {
