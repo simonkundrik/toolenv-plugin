@@ -1,19 +1,24 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
     <f:entry field="vars">
-        Select the environment variables you wish to define:
+        Select the environment variables you wish to define.
+        To define one under another name, such as <code>JAVA_HOME</code>, type that name next to it.
         <j:invokeStatic var="names" className="hudson.plugins.toolenv.ToolEnvBuildWrapper" method="availableVariableNames"/>
         <j:forEach var="v" items="${names}">
-            <br/>
-            <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="${instance.isSelected(v) ? 'true' : null}"/>
-            <code>${v}</code>
+            <div class="toolenv-row">
+                <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="${instance.isSelected(v) ? 'true' : null}"/>
+                <code>${v}</code>
+                <input type="text" class="jenkins-input toolenv-var-name" placeholder="name to use instead" value="${instance.getCustomName(v)}"/>
+            </div>
         </j:forEach>
         <j:if test="${instance != null}">
             <j:forEach var="v" items="${instance.missingVariableNames}">
-                <br/>
-                <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="true"/>
-                <code>${v}</code>
-                (no tool is configured for this variable any more)
+                <div class="toolenv-row">
+                    <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="true"/>
+                    <code>${v}</code>
+                    <input type="text" class="jenkins-input toolenv-var-name" placeholder="name to use instead" value="${instance.getCustomName(v)}"/>
+                    (no tool is configured for this variable any more)
+                </div>
             </j:forEach>
         </j:if>
         <st:adjunct includes="hudson.plugins.toolenv.ToolEnvBuildWrapper.adjunct"/>

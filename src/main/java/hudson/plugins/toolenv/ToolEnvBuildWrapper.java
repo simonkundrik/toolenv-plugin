@@ -16,16 +16,22 @@ import hudson.tools.ToolDescriptor;
 import hudson.tools.ToolInstallation;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public class ToolEnvBuildWrapper extends BuildWrapper {
+
+    /** What a name the user chose for a variable has to look like. */
+    private static final Pattern VARIABLE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
     public final String vars;
 
@@ -38,10 +44,24 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
         // Finding the tools and installing them runs the tool installers, so do that once per build, here.
         Node node = build.getBuiltOn();
         final Map<String,ToolInstallation> tools = new LinkedHashMap<String,ToolInstallation>();
-        for (String var : selectedVars()) {
+        Map<String,String> setBy = new HashMap<String,String>();
+        for (Selection selection : selections()) {
+            String var = selection.tool;
             ToolInstallation tool = toolsByVar().get(var);
             if (tool == null) {
                 listener.error("No tool found matching " + var);
+                continue;
+            }
+            String name = selection.name;
+            if (!name.equals(var) && !VARIABLE_NAME.matcher(name).matches()) {
+                listener.error("Invalid variable name " + name + " for " + var);
+                continue;
+            }
+            String other = setBy.get(name);
+            if (other != null) {
+                if (!other.equals(var)) {
+                    listener.error(name + " is already set by " + other + ", ignoring " + var);
+                }
                 continue;
             }
             if (tool instanceof NodeSpecific) {
@@ -56,7 +76,8 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
                     continue;
                 }
             }
-            tools.put(var, tool);
+            setBy.put(name, var);
+            tools.put(name, tool);
         }
         return new Environment() {
             private final Set<String> logged = ConcurrentHashMap.newKeySet();
@@ -97,24 +118,62 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
         return toolsByVar().keySet();
     }
 
-    /** Whether the variable is one of the selected ones. The form uses this to tick the checkboxes. */
+    /** Whether the tool with this variable is one of the selected ones. The form uses this to tick the checkboxes. */
     public boolean isSelected(String var) {
-        return selectedVars().contains(var);
+        for (Selection selection : selections()) {
+            if (selection.tool.equals(var)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The name the user gave to the variable of this tool instead of the default one, or an empty string. */
+    public String getCustomName(String var) {
+        for (Selection selection : selections()) {
+            if (selection.tool.equals(var) && !selection.name.equals(var)) {
+                return selection.name;
+            }
+        }
+        return "";
     }
 
     /** The selected variables that no tool matches any more, for example because the tool was removed. */
     public Collection<String> getMissingVariableNames() {
-        List<String> missing = new ArrayList<String>(selectedVars());
-        missing.removeAll(availableVariableNames());
+        Collection<String> available = availableVariableNames();
+        Set<String> missing = new LinkedHashSet<String>();
+        for (Selection selection : selections()) {
+            if (!available.contains(selection.tool)) {
+                missing.add(selection.tool);
+            }
+        }
         return missing;
     }
 
-    private List<String> selectedVars() {
-        List<String> r = new ArrayList<String>();
-        for (String var : Util.fixNull(vars).split(",")) {
-            if (!var.isEmpty()) {
-                r.add(var);
+    /**
+     * A selected tool: the variable it has by default, which is how the form knows it, and the name to set.
+     * The name is the same unless the user gave another one, which is saved as {@code NAME=TOOL_HOME}.
+     */
+    private static final class Selection {
+        final String tool;
+        final String name;
+
+        Selection(String tool, String name) {
+            this.tool = tool;
+            this.name = name;
+        }
+    }
+
+    private List<Selection> selections() {
+        List<Selection> r = new ArrayList<Selection>();
+        for (String entry : Util.fixNull(vars).split(",")) {
+            int eq = entry.indexOf('=');
+            String tool = entry.substring(eq + 1);
+            if (tool.isEmpty()) {
+                continue;
             }
+            String name = eq > 0 ? entry.substring(0, eq) : tool;
+            r.add(new Selection(tool, name));
         }
         return r;
     }

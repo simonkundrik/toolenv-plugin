@@ -1,0 +1,15 @@
+/* A tool, with the field for the name to use instead of its default variable, on one line. */
+.toolenv-row {
+    margin-top: 0.25rem;
+}
+
+.toolenv-row code {
+    display: inline-block;
+    min-width: 16rem;
+}
+
+.toolenv-row .toolenv-var-name {
+    display: inline-block;
+    width: 16rem;
+    max-width: 100%;
+}

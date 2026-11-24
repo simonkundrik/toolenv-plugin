@@ -132,6 +132,75 @@ class ToolEnvBuildWrapperTest {
         assertThat(count(r.getLog(b), "Setting M3_HOME=/tools/maven"), is(1));
     }
 
+    @Test
+    void customNameIsSetInsteadOfTheDefaultOne() throws Exception {
+        FreeStyleProject p = project("MY_TOOL=COUNTING_HOME");
+        List<String> custom = readEnvironmentInSteps(p, 2, "MY_TOOL");
+        List<String> original = readEnvironmentInSteps(p, 1, "COUNTING_HOME");
+
+        FreeStyleBuild b = r.buildAndAssertSuccess(p);
+
+        assertThat(custom, is(List.of("/opt/counting", "/opt/counting")));
+        assertThat(original.stream().allMatch(Objects::isNull), is(true));
+        assertThat(count(r.getLog(b), "Setting MY_TOOL=/opt/counting"), is(1));
+        assertThat(INSTALLS.get(), is(1));
+    }
+
+    @Test
+    void entriesWithAndWithoutACustomNameCanBeMixed() throws Exception {
+        r.jenkins
+                .getDescriptorByType(Maven.MavenInstallation.DescriptorImpl.class)
+                .setInstallations(new Maven.MavenInstallation("m3", "/opt/m3"));
+        FreeStyleProject p = project("COUNTING_HOME,M2_HOME=M3_HOME");
+        List<String> counting = readEnvironmentInSteps(p, 1, "COUNTING_HOME");
+        List<String> m2 = readEnvironmentInSteps(p, 1, "M2_HOME");
+        List<String> m3 = readEnvironmentInSteps(p, 1, "M3_HOME");
+
+        r.buildAndAssertSuccess(p);
+
+        assertThat(counting, is(List.of("/opt/counting")));
+        assertThat(m2, is(List.of("/opt/m3")));
+        assertThat(m3.stream().allMatch(Objects::isNull), is(true));
+    }
+
+    @Test
+    void invalidCustomNamesAreReportedOnceAndIgnored() throws Exception {
+        FreeStyleProject p = project("1BAD=COUNTING_HOME,BAD NAME=COUNTING_HOME,COUNTING_HOME");
+        List<String> seen = readEnvironmentInSteps(p, 3, "COUNTING_HOME");
+
+        FreeStyleBuild b = r.buildAndAssertSuccess(p);
+
+        String log = r.getLog(b);
+        assertThat(count(log, "Invalid variable name 1BAD"), is(1));
+        assertThat(count(log, "Invalid variable name BAD NAME"), is(1));
+        assertThat(seen, is(List.of("/opt/counting", "/opt/counting", "/opt/counting")));
+        assertThat(INSTALLS.get(), is(1));
+    }
+
+    @Test
+    void twoToolsCannotShareACustomName() throws Exception {
+        r.jenkins
+                .getDescriptorByType(Maven.MavenInstallation.DescriptorImpl.class)
+                .setInstallations(new Maven.MavenInstallation("m3", "/opt/m3"));
+        FreeStyleProject p = project("SHARED=COUNTING_HOME,SHARED=M3_HOME");
+        List<String> seen = readEnvironmentInSteps(p, 2, "SHARED");
+
+        FreeStyleBuild b = r.buildAndAssertSuccess(p);
+
+        assertThat(seen, is(List.of("/opt/counting", "/opt/counting")));
+        assertThat(count(r.getLog(b), "SHARED is already set by COUNTING_HOME, ignoring M3_HOME"), is(1));
+    }
+
+    @Test
+    void missingToolWithACustomNameIsReportedByItsToolName() throws Exception {
+        FreeStyleProject p = project("OLD=GONE_HOME");
+        readEnvironmentInSteps(p, 2, "OLD");
+
+        FreeStyleBuild b = r.buildAndAssertSuccess(p);
+
+        assertThat(count(r.getLog(b), "No tool found matching GONE_HOME"), is(1));
+    }
+
     private FreeStyleProject project(String vars) throws IOException {
         FreeStyleProject p = r.createFreeStyleProject();
         p.getBuildWrappersList().add(new ToolEnvBuildWrapper(vars));

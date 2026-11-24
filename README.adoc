@@ -28,6 +28,18 @@ https://plugins.jenkins.io/custom-tools-plugin/[Custom Tools
 Plugin] the advantage is that you can use the tool in arbitrary ways,
 not just running an executable from it.
 
+== Variable names
+
+A tool named `maven-3.9` is available as `MAVEN_3_9_HOME`: the name of the tool in capitals, each run of characters other than letters, digits and underscores replaced by one underscore, and `_HOME` added.
+
+If a script expects another name, type it in the field next to the tool, for example `M2_HOME` or `JAVA_HOME`.
+The tool is then defined under that name instead of the default one.
+A name can use letters, digits and underscores and can't start with a digit.
+Two tools can't share a name: the one that was ticked first is used and the build log says so.
+
+The choice is saved in the `vars` field of the job as a comma separated list.
+A tool with a name of your own is saved as `NAME=TOOL_HOME`, for example `M2_HOME=MAVEN_3_9_HOME,JAVA_HOME=JDK_21_HOME,ANT_1_10_HOME`.
+
 == Release notes
 
 See https://github.com/jenkinsci/toolenv-plugin/releases[GitHub Release] for more recent versions.
