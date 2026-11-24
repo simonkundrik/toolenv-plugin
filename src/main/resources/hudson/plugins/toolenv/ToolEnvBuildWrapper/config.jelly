@@ -5,9 +5,17 @@
         <j:invokeStatic var="names" className="hudson.plugins.toolenv.ToolEnvBuildWrapper" method="availableVariableNames"/>
         <j:forEach var="v" items="${names}">
             <br/>
-            <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="${instance['vars'].contains(v) ? 'true' : null}"/>
+            <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="${instance.isSelected(v) ? 'true' : null}"/>
             <code>${v}</code>
         </j:forEach>
+        <j:if test="${instance != null}">
+            <j:forEach var="v" items="${instance.missingVariableNames}">
+                <br/>
+                <input type="checkbox" data-v="${v}" class="toolenv-var-checkbox" checked="true"/>
+                <code>${v}</code>
+                (no tool is configured for this variable any more)
+            </j:forEach>
+        </j:if>
         <st:adjunct includes="hudson.plugins.toolenv.ToolEnvBuildWrapper.adjunct"/>
         <input type="hidden" name="_.vars" id='vars.field' value="${instance['vars']}"/>
     </f:entry>

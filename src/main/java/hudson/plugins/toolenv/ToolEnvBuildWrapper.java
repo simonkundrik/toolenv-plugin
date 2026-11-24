@@ -97,6 +97,18 @@ public class ToolEnvBuildWrapper extends BuildWrapper {
         return toolsByVar().keySet();
     }
 
+    /** Whether the variable is one of the selected ones. The form uses this to tick the checkboxes. */
+    public boolean isSelected(String var) {
+        return selectedVars().contains(var);
+    }
+
+    /** The selected variables that no tool matches any more, for example because the tool was removed. */
+    public Collection<String> getMissingVariableNames() {
+        List<String> missing = new ArrayList<String>(selectedVars());
+        missing.removeAll(availableVariableNames());
+        return missing;
+    }
+
     private List<String> selectedVars() {
         List<String> r = new ArrayList<String>();
         for (String var : Util.fixNull(vars).split(",")) {
